@@ -1,4 +1,4 @@
-package main
+package websocket
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ type EventHandler func(event Event, c *Client) error
 const (
 	EventSendMessage = "send_message"
 	EventNewMessage  = "new_message"
-	EventChangeRoom = "change_room"
+	EventChangeRoom  = "change_room"
 )
 
 type SendMessageEvent struct {

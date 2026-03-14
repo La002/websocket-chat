@@ -4,7 +4,22 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="43e639ce-c33d-4f15-95f6-b44216728370" name="Changes" comment="" />
+    <list default="true" id="43e639ce-c33d-4f15-95f6-b44216728370" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/ENV_CONFIG.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/cmd/server/main.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/internal/config/config.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/internal/config/logger.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/internal/pubsub/redis.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/internal/websocket/room.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/websocket/client.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/event.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/websocket/event.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/manager.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/websocket/manager.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/otp.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/auth/otp.go" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -15,10 +30,20 @@
       <entry key="_/Users/i586147/Learning/golang/websocket-chat" value="38Zik2Jf5m7GXMw6gybUKmfqza9" />
     </persistenceIdMap>
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
   <component name="GOROOT" url="file://$USER_HOME$/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.4.darwin-arm64" />
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 1
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
   <component name="ProjectId" id="38Zik2Jf5m7GXMw6gybUKmfqza9" />
   <component name="ProjectViewState">
     <option name="autoscrollFromSource" value="true" />
@@ -27,12 +52,15 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "DefaultGoTemplateProperty": "Go File",
+    "Go Build.go build github.com/La002/websocket-chat/cmd/server.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
     "RunOnceActivity.go.migrated.go.modules.settings": "true",
     "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
+    "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
     "last_opened_file_path": "/Users/i586147",
     "node.js.detected.package.eslint": "true",
@@ -41,6 +69,27 @@
     "onboarding.tips.debug.path": "/Users/i586147/Learning/golang/websocket-chat/main.go"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/internal/websocket" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="go build github.com/La002/websocket-chat/cmd/server" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="websocket-chat" />
+      <working_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/La002/websocket-chat/cmd/server" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/cmd/server/main.go" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Build.go build github.com/La002/websocket-chat/cmd/server" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

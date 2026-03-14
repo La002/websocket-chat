@@ -1,15 +1,17 @@
-package main
+package websocket
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
+	"github.com/La002/websocket-chat/internal/auth"
 	"github.com/gorilla/websocket"
 )
 
@@ -22,20 +24,23 @@ var (
 )
 
 type Manager struct {
-	clients ClientList
 	sync.RWMutex
-	otps     RetentionMap
-	handlers map[string]EventHandler
+	otps          auth.RetentionMap
+	handlers      map[string]EventHandler
+	clientRoomMap map[*Client]*Room
+	roomList      map[string]*Room
 }
 
 func NewManager(ctx context.Context) *Manager {
 	m := &Manager{
-		clients:  make(ClientList),
-		handlers: make(map[string]EventHandler),
-		otps:     NewRetentionMap(ctx, 5*time.Second),
+		handlers:      make(map[string]EventHandler),
+		otps:          auth.NewRetentionMap(ctx, 5*time.Second),
+		clientRoomMap: make(map[*Client]*Room),
+		roomList:      make(map[string]*Room),
 	}
 
 	m.setupEventHandlers()
+	m.setupRooms(ctx)
 	return m
 }
 
@@ -44,46 +49,45 @@ func (m *Manager) setupEventHandlers() {
 	m.handlers[EventChangeRoom] = ChangeRoomHandler
 }
 
+func (m *Manager) setupRooms(ctx context.Context) {
+	m.roomList = make(map[string]*Room)
+	for i := 0; i < 10; i++ {
+		roomName := fmt.Sprintf("%d", i)
+		var room = NewRoom(roomName)
+		m.roomList[roomName] = room
+		go room.Run(ctx)
+	}
+}
+
 func ChangeRoomHandler(event Event, c *Client) error {
 	var changeRoomEvent ChangeRoomEvent
 
 	if err := json.Unmarshal(event.Payload, &changeRoomEvent); err != nil {
 		return fmt.Errorf("Bad Payload in request: %v", err)
 	}
+	m := c.manager
 
-	c.chatroom = changeRoomEvent.Name
+	name := changeRoomEvent.Name
+	if _, ok := m.roomList[name]; !ok {
+		return fmt.Errorf("This room does not exist. Total rooms : %s", len(m.roomList))
+	}
 
+	oldRoom := m.clientRoomMap[c]
+	oldRoom.PullClient(c)
+
+	newRoom := m.roomList[name]
+	m.clientRoomMap[c] = newRoom
+	newRoom.SendClient(c)
+
+	c.chatroom = name
 	return nil
 }
+
 func SendMessage(event Event, c *Client) error {
-	var chatEvent SendMessageEvent
+	m := c.manager
+	chatRoom := m.clientRoomMap[c]
 
-	if err := json.Unmarshal(event.Payload, &chatEvent); err != nil {
-		return fmt.Errorf("bad payload in request: %v", err)
-	}
-
-	var broadcastMessage NewMessageEvent
-
-	broadcastMessage.Sent = time.Now()
-	broadcastMessage.Message = chatEvent.Message
-	broadcastMessage.From = chatEvent.From
-
-	data, err := json.Marshal(broadcastMessage)
-	if err != nil {
-		return fmt.Errorf("failed to marshal the broad message: %v", err)
-	}
-
-	outgoingEvent := Event{
-		Payload: data,
-		Type:    EventNewMessage,
-	}
-
-	for client := range c.manager.clients {
-		if client.chatroom == c.chatroom {
-			client.egress <- outgoingEvent
-		}
-
-	}
+	chatRoom.BroadCast(event)
 
 	return nil
 }
@@ -99,7 +103,7 @@ func (m *Manager) routeEvent(event Event, c *Client) error {
 	}
 }
 
-func (m *Manager) serveWS(w http.ResponseWriter, r *http.Request) {
+func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 	otp := r.URL.Query().Get("otp")
 	if otp == "" {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -110,10 +114,10 @@ func (m *Manager) serveWS(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	log.Println("new connection")
+	log.Debug().Msg("new connection")
 	conn, err := websocketUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Error().Err(err).Msg("failed to upgrade websocket connection")
 		return
 	}
 
@@ -125,7 +129,7 @@ func (m *Manager) serveWS(w http.ResponseWriter, r *http.Request) {
 	go client.writeMessages()
 }
 
-func (m *Manager) loginHandler(w http.ResponseWriter, r *http.Request) {
+func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	type userLoginRequest struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -151,7 +155,10 @@ func (m *Manager) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		data, err := json.Marshal(resp)
 		if err != nil {
-			log.Println(err)
+			log.Error().Err(err).
+				Str("username", req.Username).
+				Str("otp", otp.Key).
+				Msg("failed to marshal login response")
 			return
 		}
 
@@ -167,18 +174,41 @@ func (m *Manager) addClient(client *Client) {
 	m.Lock()
 
 	defer m.Unlock()
-
-	m.clients[client] = true
+	defaultRoom := m.roomList["0"]
+	m.clientRoomMap[client] = defaultRoom
+	defaultRoom.SendClient(client)
 }
 
 func (m *Manager) removeClient(client *Client) {
 	m.Lock()
 	defer m.Unlock()
 
-	if _, ok := m.clients[client]; ok {
+	if room, ok := m.clientRoomMap[client]; ok {
+		room.PullClient(client)
 		client.connection.Close()
-		delete(m.clients, client)
+		delete(m.clientRoomMap, client)
+		log.Debug().Str("chatroom", client.chatroom).Msg("client removed")
 	}
+}
+
+// Shutdown gracefully closes all client connections
+func (m *Manager) Shutdown() {
+	log.Info().Int("client_count", len(m.clientRoomMap)).Msg("shutting down manager")
+
+	m.Lock()
+	clientsToClose := make([]*Client, 0, len(m.clientRoomMap))
+	for client := range m.clientRoomMap {
+		clientsToClose = append(clientsToClose, client)
+	}
+	m.Unlock()
+
+	for _, client := range clientsToClose {
+		close(client.egress)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	log.Info().Msg("manager shutdown complete")
 }
 
 func checkOrigin(r *http.Request) bool {
