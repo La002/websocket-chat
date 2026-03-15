@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/La002/websocket-chat/internal/config"
+	"github.com/La002/websocket-chat/internal/pubsub"
 	"github.com/La002/websocket-chat/internal/websocket"
 	"github.com/rs/zerolog/log"
 )
@@ -22,7 +23,13 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	manager := setupAPI(cfg, ctx)
+	redis, err := pubsub.NewRedisPubSub("localhost:6379")
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to connect to redis")
+	}
+	defer redis.Close()
+
+	manager := setupAPI(cfg, ctx, redis)
 
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
 	server := &http.Server{
@@ -66,8 +73,8 @@ func main() {
 	}
 }
 
-func setupAPI(cfg *config.Config, ctx context.Context) *websocket.Manager {
-	manager := websocket.NewManager(ctx)
+func setupAPI(cfg *config.Config, ctx context.Context, redis *pubsub.RedisPubSub) *websocket.Manager {
+	manager := websocket.NewManager(ctx, redis)
 
 	http.HandleFunc("/ws", manager.ServeWS)
 	http.Handle("/", http.FileServer(http.Dir(cfg.Server.FrontendDir)))

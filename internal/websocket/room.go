@@ -7,29 +7,33 @@ import (
 	"sync"
 	"time"
 
+	"github.com/La002/websocket-chat/internal/pubsub"
 	"github.com/rs/zerolog/log"
 )
 
 type Room struct {
 	name string
 	sync.RWMutex
-	join      chan *Client
-	leave     chan *Client
-	broadcast chan Event
-	clients   map[*Client]bool
+	join    chan *Client
+	leave   chan *Client
+	clients map[*Client]bool
+	pubsub  *pubsub.RedisPubSub
+	ctx     context.Context
 }
 
-func NewRoom(name string) *Room {
+func NewRoom(ctx context.Context, name string, redis *pubsub.RedisPubSub) *Room {
 	return &Room{
-		name:      name,
-		join:      make(chan *Client),
-		leave:     make(chan *Client),
-		clients:   make(map[*Client]bool),
-		broadcast: make(chan Event, 100),
+		name:    name,
+		join:    make(chan *Client),
+		leave:   make(chan *Client),
+		clients: make(map[*Client]bool),
+		pubsub:  redis,
+		ctx:     ctx,
 	}
 }
 
 func (r *Room) Run(ctx context.Context) {
+	r.pubsub.Subscribe(ctx, r.name, r.handleRedisMessage)
 	for {
 		select {
 		case c, ok := <-r.join:
@@ -37,7 +41,7 @@ func (r *Room) Run(ctx context.Context) {
 				// Do what here?
 			}
 
-			r.addClient(c)
+			r.addClient(ctx, c)
 
 		case c, ok := <-r.leave:
 			if !ok {
@@ -45,23 +49,26 @@ func (r *Room) Run(ctx context.Context) {
 			}
 
 			r.removeClient(c)
-
-		// does event contain the sender or no? What type of message are we expecting?
-		case event, ok := <-r.broadcast:
-			if !ok {
-
-			}
-			err := r.broadcastMessage(event)
-			if err != nil {
-				log.Err(err).Msg("Failed to broadcast")
-			} else {
-				log.Debug().Msg("Broadcast done")
-			}
 		}
 	}
 }
 
-func (r *Room) addClient(c *Client) {
+func (r *Room) handleRedisMessage(message []byte) {
+	var event Event
+	json.Unmarshal(message, &event)
+
+	r.RLock()
+	defer r.RUnlock()
+	for client := range r.clients {
+		select {
+		case client.egress <- event:
+		default:
+			// slow consumer
+		}
+	}
+}
+
+func (r *Room) addClient(ctx context.Context, c *Client) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -122,10 +129,31 @@ func (r *Room) PullClient(c *Client) {
 }
 
 func (r *Room) BroadCast(event Event) {
-	select {
-	case r.broadcast <- event:
-	default:
-		log.Warn().Msg("queue full, dropping message")
-
+	var chatEvent SendMessageEvent
+	if err := json.Unmarshal(event.Payload, &chatEvent); err != nil {
+		log.Err(err).Msg("failed to unmarshal chat event")
+		return
 	}
+
+	broadcastMessage := NewMessageEvent{
+		Sent: time.Now(),
+		SendMessageEvent: SendMessageEvent{
+			Message: chatEvent.Message,
+			From:    chatEvent.From,
+		},
+	}
+
+	payload, err := json.Marshal(broadcastMessage)
+	if err != nil {
+		log.Err(err).Msg("failed to marshal broadcast message")
+		return
+	}
+
+	outgoingEvent := Event{
+		Type:    EventNewMessage,
+		Payload: payload,
+	}
+
+	data, _ := json.Marshal(outgoingEvent)
+	r.pubsub.Publish(r.ctx, r.name, data)
 }

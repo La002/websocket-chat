@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/La002/websocket-chat/internal/pubsub"
 	"github.com/rs/zerolog/log"
 
 	"github.com/La002/websocket-chat/internal/auth"
@@ -25,18 +26,20 @@ var (
 
 type Manager struct {
 	sync.RWMutex
+	redis         *pubsub.RedisPubSub
 	otps          auth.RetentionMap
 	handlers      map[string]EventHandler
 	clientRoomMap map[*Client]*Room
 	roomList      map[string]*Room
 }
 
-func NewManager(ctx context.Context) *Manager {
+func NewManager(ctx context.Context, redis *pubsub.RedisPubSub) *Manager {
 	m := &Manager{
 		handlers:      make(map[string]EventHandler),
 		otps:          auth.NewRetentionMap(ctx, 5*time.Second),
 		clientRoomMap: make(map[*Client]*Room),
 		roomList:      make(map[string]*Room),
+		redis:         redis,
 	}
 
 	m.setupEventHandlers()
@@ -53,7 +56,7 @@ func (m *Manager) setupRooms(ctx context.Context) {
 	m.roomList = make(map[string]*Room)
 	for i := 0; i < 10; i++ {
 		roomName := fmt.Sprintf("%d", i)
-		var room = NewRoom(roomName)
+		var room = NewRoom(ctx, roomName, m.redis)
 		m.roomList[roomName] = room
 		go room.Run(ctx)
 	}
