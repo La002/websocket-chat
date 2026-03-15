@@ -13,6 +13,12 @@ type Config struct {
 	Server ServerConfig
 	Logger LoggerConfig
 	JWT    JWTConfig
+	Redis  RedisConfig
+}
+
+// RedisConfig holds Redis connection settings
+type RedisConfig struct {
+	Addr string
 }
 
 // ServerConfig holds server-specific settings
@@ -57,10 +63,13 @@ func Load() *Config {
 			Env:   getEnv("ENV", "development"),
 		},
 		JWT: JWTConfig{
-			AccessPrivateKey:     "private_key",
-			AccessPublicKey:      "private_key",
+			AccessPrivateKey:     getEnv("JWT_SECRET", "change-me-in-production"),
+			AccessPublicKey:      getEnv("JWT_SECRET", "change-me-in-production"),
 			AccessTokenExpiredIn: time.Minute * 60,
 			AccessTokenMaxAge:    time.Minute * 60,
+		},
+		Redis: RedisConfig{
+			Addr: getEnv("REDIS_ADDR", "localhost:6379"),
 		},
 	}
 }

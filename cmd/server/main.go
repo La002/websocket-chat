@@ -23,7 +23,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	redis, err := pubsub.NewRedisPubSub("localhost:6379")
+	redis, err := pubsub.NewRedisPubSub(cfg.Redis.Addr)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to redis")
 	}
