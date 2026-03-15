@@ -128,7 +128,7 @@ func (r *Room) PullClient(c *Client) {
 	r.leave <- c
 }
 
-func (r *Room) BroadCast(event Event) {
+func (r *Room) BroadCast(event Event, username string) {
 	var chatEvent SendMessageEvent
 	if err := json.Unmarshal(event.Payload, &chatEvent); err != nil {
 		log.Err(err).Msg("failed to unmarshal chat event")
@@ -139,7 +139,7 @@ func (r *Room) BroadCast(event Event) {
 		Sent: time.Now(),
 		SendMessageEvent: SendMessageEvent{
 			Message: chatEvent.Message,
-			From:    chatEvent.From,
+			From:    username,
 		},
 	}
 

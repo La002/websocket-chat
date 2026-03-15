@@ -91,7 +91,7 @@ func SendMessage(event Event, c *Client) error {
 	m := c.manager
 	chatRoom := m.clientRoomMap[c]
 
-	chatRoom.BroadCast(event)
+	chatRoom.BroadCast(event, c.username)
 
 	return nil
 }
@@ -113,19 +113,19 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	_, err := auth.ValidateToken(jwtToken, m.cfg.JWT.AccessPrivateKey)
+	username, err := auth.ValidateToken(jwtToken, m.cfg.JWT.AccessPrivateKey)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	log.Debug().Msg("new connection")
+	log.Debug().Str("username", username.(string)).Msg("new connection")
 	conn, err := websocketUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to upgrade websocket connection")
 		return
 	}
 
-	client := NewClient(conn, m)
+	client := NewClient(conn, m, username.(string))
 	m.addClient(client)
 
 	// Start client processes

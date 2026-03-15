@@ -18,13 +18,15 @@ type Client struct {
 	connection *websocket.Conn
 	manager    *Manager
 	chatroom   string
+	username   string
 	egress     chan Event
 }
 
-func NewClient(conn *websocket.Conn, manager *Manager) *Client {
+func NewClient(conn *websocket.Conn, manager *Manager, username string) *Client {
 	return &Client{
 		connection: conn,
 		manager:    manager,
+		username:   username,
 		egress:     make(chan Event, 50),
 	}
 }
