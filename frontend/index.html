@@ -30,8 +30,6 @@
                 <form id="login-form">
                     <label for="username">username:</label>
                     <input type="text" id="username" name="username"><br>
-                    <label for="password">password:</label>
-                    <input type="password" id="password" name="password"><br><br>
                     <input type="submit" value="Login">
                 </form>
             </div>
@@ -127,7 +125,6 @@
             function login(){
                 let formData = {
                     "username": document.getElementById("username").value,
-                    "password": document.getElementById("password").value
                 }
 
                 fetch("login", {
@@ -142,7 +139,8 @@
                     }
                 }).then((data) => {
                     // we are authenticated
-                    connectWebsocket(data.otp);
+                    localStorage.setItem('token', data.token)
+                    connectWebsocket(data.token);
                 }).catch((e) => {
                     alert(e);
                 })
@@ -150,11 +148,11 @@
                 return false;
             }
 
-            function connectWebsocket(otp){
+            function connectWebsocket(token){
                 if (window["WebSocket"]){
                     console.log("supports websockets");
                     // connect to ws
-                    conn = new WebSocket("ws://" + document.location.host + "/ws?otp="+ otp);
+                    conn = new WebSocket("ws://" + document.location.host + "/ws?token="+ token);
                     
                     conn.onopen = function(evt) {
                         document.getElementById("connection-header").innerHTML = "Connected to WebSocket: true";

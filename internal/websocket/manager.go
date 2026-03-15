@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/La002/websocket-chat/internal/config"
 	"github.com/La002/websocket-chat/internal/pubsub"
 	"github.com/rs/zerolog/log"
 
@@ -26,17 +27,17 @@ var (
 
 type Manager struct {
 	sync.RWMutex
+	cfg           *config.Config
 	redis         *pubsub.RedisPubSub
-	otps          auth.RetentionMap
 	handlers      map[string]EventHandler
 	clientRoomMap map[*Client]*Room
 	roomList      map[string]*Room
 }
 
-func NewManager(ctx context.Context, redis *pubsub.RedisPubSub) *Manager {
+func NewManager(ctx context.Context, cfg *config.Config, redis *pubsub.RedisPubSub) *Manager {
 	m := &Manager{
+		cfg:           cfg,
 		handlers:      make(map[string]EventHandler),
-		otps:          auth.NewRetentionMap(ctx, 5*time.Second),
 		clientRoomMap: make(map[*Client]*Room),
 		roomList:      make(map[string]*Room),
 		redis:         redis,
@@ -107,13 +108,13 @@ func (m *Manager) routeEvent(event Event, c *Client) error {
 }
 
 func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
-	otp := r.URL.Query().Get("otp")
-	if otp == "" {
+	jwtToken := r.URL.Query().Get("token")
+	if jwtToken == "" {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-
-	if !m.otps.VerifyOTP(otp) {
+	_, err := auth.ValidateToken(jwtToken, m.cfg.JWT.AccessPrivateKey)
+	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -135,7 +136,10 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	type userLoginRequest struct {
 		Username string `json:"username"`
-		Password string `json:"password"`
+	}
+
+	type response struct {
+		Token string `json:"token"`
 	}
 
 	var req userLoginRequest
@@ -145,32 +149,29 @@ func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Username == "lak" && req.Password == "123" {
-		type response struct {
-			OTP string `json:"otp"`
-		}
-
-		otp := m.otps.NewOTP()
-
-		resp := response{
-			OTP: otp.Key,
-		}
-
-		data, err := json.Marshal(resp)
-		if err != nil {
-			log.Error().Err(err).
-				Str("username", req.Username).
-				Str("otp", otp.Key).
-				Msg("failed to marshal login response")
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		w.Write(data)
+	if req.Username == "" {
+		http.Error(w, "username required", http.StatusBadRequest)
 		return
 	}
 
-	w.WriteHeader(http.StatusUnauthorized)
+	token, err := auth.GenerateToken(m.cfg.JWT.AccessTokenExpiredIn, req.Username, m.cfg.JWT.AccessPrivateKey)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to generate token")
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := response{Token: token}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		log.Error().Err(err).
+			Str("username", req.Username).
+			Msg("failed to marshal login response")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 func (m *Manager) addClient(client *Client) {

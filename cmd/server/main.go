@@ -74,7 +74,7 @@ func main() {
 }
 
 func setupAPI(cfg *config.Config, ctx context.Context, redis *pubsub.RedisPubSub) *websocket.Manager {
-	manager := websocket.NewManager(ctx, redis)
+	manager := websocket.NewManager(ctx, cfg, redis)
 
 	http.HandleFunc("/ws", manager.ServeWS)
 	http.Handle("/", http.FileServer(http.Dir(cfg.Server.FrontendDir)))

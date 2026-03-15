@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Server ServerConfig
 	Logger LoggerConfig
+	JWT    JWTConfig
 }
 
 // ServerConfig holds server-specific settings
@@ -26,6 +27,13 @@ type ServerConfig struct {
 type LoggerConfig struct {
 	Level string // debug, info, warn, error
 	Env   string // development, production
+}
+
+type JWTConfig struct {
+	AccessPrivateKey     string        `mapstructure:"access_private_key"`
+	AccessPublicKey      string        `mapstructure:"access_public_key"`
+	AccessTokenExpiredIn time.Duration `mapstructure:"access_token_expired_in"`
+	AccessTokenMaxAge    time.Duration `mapstructure:"access_token_max_age"`
 }
 
 // Load reads configuration from .env file and environment variables with sensible defaults
@@ -47,6 +55,12 @@ func Load() *Config {
 		Logger: LoggerConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
 			Env:   getEnv("ENV", "development"),
+		},
+		JWT: JWTConfig{
+			AccessPrivateKey:     "private_key",
+			AccessPublicKey:      "private_key",
+			AccessTokenExpiredIn: time.Minute * 60,
+			AccessTokenMaxAge:    time.Minute * 60,
 		},
 	}
 }
